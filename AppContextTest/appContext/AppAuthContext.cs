@@ -9,11 +9,24 @@ using EasyNetQ; // Install-Package EasyNetQ
 using System.Net.NetworkInformation;
 using RabbitMQ.Client;
 
+
+//Update-Package -reinstall
+
 namespace AppContextTest.appContext
 {
     public class AppAuthContext
     {
         AppAuthState appAuthState;
+
+        public AppAuthState getAppAuthState()
+        {
+            return this.appAuthState;
+        }
+        public void setAppAuthState(AppAuthState appAuthState)
+        {
+            this.appAuthState = appAuthState;
+        }
+
         Login loginForm;
         public Login getLoginForm()
         {
@@ -38,8 +51,11 @@ namespace AppContextTest.appContext
 
         public void authenticate(String username, String password)
         {
-            this.appAuthState.authenticate(this);
-            this.appAuthState = new AuthenticatingState();
+            lock (appAuthState)
+            {
+                this.appAuthState.authenticate(this);
+                this.appAuthState = new AuthenticatingState();
+            }
 
             advBus = RabbitHutch.CreateBus("host=207.148.88.116:5672; virtualHost=created-docs-vhost; username=created-docs-dev; password=rlaehdgus",
                 x => x.Register(c => new AdvancedBusEventHandlers((s, e) => {/*onConnected, 연결성공*/},
@@ -49,7 +65,7 @@ namespace AppContextTest.appContext
                     this.disconnect();
                 }))).Advanced;
 
-            String clientId = getMaxAddress();
+            String clientId = getMacAddress();
             // exchange는 메세지를 분류해 주는 곳으로, 이미 있는 exchange를 새로 declare해도 문제 없다.
             var exchange = advBus.ExchangeDeclare("created-docs.direct", ExchangeType.Direct);
 
@@ -106,7 +122,7 @@ namespace AppContextTest.appContext
             }));
         }
 
-        public String getMaxAddress()
+        public String getMacAddress()
         {
             String firstMacAddress = NetworkInterface
                 .GetAllNetworkInterfaces()
@@ -114,6 +130,14 @@ namespace AppContextTest.appContext
                 .Select(nic => nic.GetPhysicalAddress().ToString())
                 .FirstOrDefault();
             return firstMacAddress;
+        }
+        public void authoirze()
+        {
+            lock(appAuthState)
+            {
+                appAuthState.authorize(this);
+                setAppAuthState(new AuthorizedState());
+            }
         }
         public void authenticateActivatingNew()
         {
@@ -125,8 +149,11 @@ namespace AppContextTest.appContext
         }
         public void disconnect()
         {
-            appAuthState.disconnect(this);
-            this.appAuthState = new IntialState();
+            lock(appAuthState)
+            {
+                appAuthState.disconnect(this);
+                setAppAuthState(new IntialState());
+            }
         }
         public String getMessage()
         {
