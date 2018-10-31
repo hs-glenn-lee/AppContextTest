@@ -9,6 +9,15 @@ namespace AppContextTest.appContext
 {
     class Me
     {
+        public Me() {
+            username = "";
+            encryptedPassword = "";
+        }
+        public Me(String username, String plainPassword)
+        {
+            this.username = username;
+            this.encryptedPassword = Crypto.Encrypt(plainPassword);
+        }
         public String username { get; set; }
         public String encryptedPassword
         {

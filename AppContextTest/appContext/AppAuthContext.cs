@@ -17,6 +17,7 @@ namespace AppContextTest.appContext
     public class AppAuthContext
     {
         AppAuthState appAuthState;
+        Me me;
 
         public AppAuthState getAppAuthState()
         {
@@ -42,11 +43,18 @@ namespace AppContextTest.appContext
         public AppAuthContext(Login loginForm)
         {
             this.loginForm = loginForm;
+            lock (me)
+            {
+                this.me = new Me();
+            }
         }
 
         public void start ()
         {
-            this.appAuthState = new IntialState();
+            lock(appAuthState)
+            {
+                this.appAuthState = new IntialState();
+            }
         }
 
         public void authenticate(String username, String password)
@@ -59,11 +67,13 @@ namespace AppContextTest.appContext
 
             advBus = RabbitHutch.CreateBus("host=207.148.88.116:5672; virtualHost=created-docs-vhost; username=created-docs-dev; password=rlaehdgus",
                 x => x.Register(c => new AdvancedBusEventHandlers((s, e) => {/*onConnected, 연결성공*/},
-                (s, e) => {/*onDisconnected, 연결이 끊김, 기본적으로 라이브러리에셔 여러번 retry함.*/
+                (s, e) =>
+                {/*onDisconnected, 연결이 끊김, 기본적으로 라이브러리에셔 여러번 retry함.*/
                     var advancedBus = (IAdvancedBus)s;
                     advancedBus.Dispose();
                     this.disconnect();
                 }))).Advanced;
+
 
             String clientId = getMacAddress();
             // exchange는 메세지를 분류해 주는 곳으로, 이미 있는 exchange를 새로 declare해도 문제 없다.
@@ -89,37 +99,71 @@ namespace AppContextTest.appContext
             //서버에서 default exchange 발송해야한다. 이렇게 bind하면 auto delete가 안된다.
             //advBus.Bind(exchange, unauthQueue, "client." + clientId + ".unauth");
 
-            // Authentication이란 클래스를 json으로 만들어 메세지의 body로 쓸것이다.
-            Authentication appAuthMessage = new Authentication { username = "123", password = "12345", type = Authentication.NORMAL, clientId = clientId };
-            string jsonMsg = JsonConvert.SerializeObject(appAuthMessage);
-            var body = Encoding.UTF8.GetBytes(jsonMsg);
+            lock (me)
+            {
+                me.username = username;
+                me.setEncryptedPasswordByPalinPassword(password);
+                Authentication appAuthMessage = new Authentication { username = me.username, password = me.encryptedPassword, type = Authentication.NORMAL, clientId = clientId };
 
-            //메세지의 속성을 입력하는 코드
-            var messageProperties = new MessageProperties();
-            messageProperties.ContentEncoding = "UTF-8"; //반드시 필요하다.
-            messageProperties.ContentType = "application/json"; //반드시 필요하다.
-            messageProperties.MessageId = System.Guid.NewGuid().ToString(); // Optional 메세지 관리를 위한 것
-            messageProperties.CorrelationId = System.Guid.NewGuid().ToString(); // 답장을 위해 반드시 필요하다.
-            messageProperties.ReplyTo = queue.Name; // 이 큐로 답장을 보내달라는 것으로 반드시 필요하다.
+                string jsonMsg = JsonConvert.SerializeObject(appAuthMessage);
+                var body = Encoding.UTF8.GetBytes(jsonMsg);
 
-            var msg = new Message<Authentication>(appAuthMessage);
-            msg.SetProperties(messageProperties);
+                //메세지의 속성을 입력하는 코드
+                var messageProperties = new MessageProperties();
+                messageProperties.ContentEncoding = "UTF-8"; //반드시 필요하다.
+                messageProperties.ContentType = "application/json"; //반드시 필요하다.
+                messageProperties.MessageId = System.Guid.NewGuid().ToString(); // Optional 메세지 관리를 위한 것
+                messageProperties.CorrelationId = System.Guid.NewGuid().ToString(); // 답장을 위해 반드시 필요하다.
+                messageProperties.ReplyTo = queue.Name; // 이 큐로 답장을 보내달라는 것으로 반드시 필요하다.
 
-            // 메세지 발송
-            advBus.Publish(
-                exchange,
-                "app.auth",
-                false,
-                message: msg
-            );
+                var msg = new Message<Authentication>(appAuthMessage);
+                msg.SetProperties(messageProperties);
+
+                advBus.Publish(
+                    exchange,
+                    "app.auth",
+                    false,
+                    message: msg
+                );
+            }
 
             // 해당 큐 (여기서는 아까 만든 답장을 위한 임시큐) 로 메세지가 도착하면 처리하는 코드
             advBus.Consume(queue, (bbody, properties, info) => Task.Factory.StartNew(() =>
             {
-                var message = Encoding.UTF8.GetString(bbody);
-                appAuthState.authorize(this);
-                appAuthState = new AuthorizedState();
+                string message = Encoding.UTF8.GetString(bbody);
+                AuthenticationResult authResult = JsonConvert.DeserializeObject<AuthenticationResult>(message);
+                string authResultCode = authResult.resultCode;
+
+                if (authResultCode.Equals(AuthenticationResult.AUTHORIZED))
+                {
+                    authoirze();
+                }
+                else if (authResultCode.Equals(AuthenticationResult.NEED_TO_ACTIVATE_NEW))
+                {
+                    authenticateActivatingNew();
+                }
+                else if (authResultCode.Equals(AuthenticationResult.UNAUHORIZED))
+                {
+                    unauthorize();
+                }
+                else if (authResultCode.Equals(AuthenticationResult.ERROR))
+                {
+                    error();
+                }
+                else
+                {
+                    error();
+                }
             }));
+
+            advBus.Consume(unauthQueue, (bbody, properties, info) => Task.Factory.StartNew(() =>
+            {
+                //server makes this client stop
+                string message = Encoding.UTF8.GetString(bbody);
+                //do something with message
+                unauthorize();
+            }));
+
         }
 
         public String getMacAddress()
@@ -155,9 +199,13 @@ namespace AppContextTest.appContext
                 setAppAuthState(new IntialState());
             }
         }
+        public void error()
+        {
+
+        }
         public String getMessage()
         {
-            return this.appAuthState.getMessage();
+            return this.appAuthState.getStateCode();
         }
     }
 }

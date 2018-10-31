@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace AppContextTest.appContext
 {
 
-    class AppStateMessage
+    class AppStateCode
     {
         public const String INITIAL = "INITIAL";
         public const String AUTHENTICATING = "AUTHENTICATING";
@@ -15,6 +15,7 @@ namespace AppContextTest.appContext
         public const String UNAUTHORIZED = "UNAUTHORIZED";
         public const String NEED_TO_ACTIVATE_NEW = "NEED_TO_ACTIVATE_NEW";
         public const String DISCONNECTED = "DISCONNECTED";
+        public const String ERROR = "ERROR";
     }
 
     public interface AppAuthState
@@ -22,9 +23,10 @@ namespace AppContextTest.appContext
         void authenticate(AppAuthContext context);
         void authorize(AppAuthContext context);
         void authenticateActivatingNew(AppAuthContext context);
-        void unauthorize(AppAuthContext context);
+        void unauthorize(AppAuthContext context, string message);
         void disconnect(AppAuthContext context);
-        String getMessage();
+        void error(AppAuthContext context);
+        String getStateCode();
     }
 
     public class IntialState : AppAuthState
@@ -37,27 +39,32 @@ namespace AppContextTest.appContext
 
         void AppAuthState.authenticateActivatingNew(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.authorize(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.disconnect(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
-        string AppAuthState.getMessage()
+        void AppAuthState.error(AppAuthContext context)
         {
-            return AppStateMessage.INITIAL;
+            throw new NotSupportedException();
         }
 
-        void AppAuthState.unauthorize(AppAuthContext context)
+        string AppAuthState.getStateCode()
         {
-            throw new NotImplementedException();
+            return AppStateCode.INITIAL;
+        }
+
+        void AppAuthState.unauthorize(AppAuthContext context, string message)
+        {
+            throw new NotSupportedException();
         }
     }
 
@@ -65,12 +72,12 @@ namespace AppContextTest.appContext
     {
         void AppAuthState.authenticate(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.authenticateActivatingNew(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.authorize(AppAuthContext context)
@@ -81,17 +88,22 @@ namespace AppContextTest.appContext
 
         void AppAuthState.disconnect(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
-        string AppAuthState.getMessage()
+        void AppAuthState.error(AppAuthContext context)
         {
-            return AppStateMessage.AUTHENTICATING;
+            throw new NotSupportedException();
         }
 
-        void AppAuthState.unauthorize(AppAuthContext context)
+        string AppAuthState.getStateCode()
         {
-            throw new NotImplementedException();
+            return AppStateCode.AUTHENTICATING;
+        }
+
+        void AppAuthState.unauthorize(AppAuthContext context, string message)
+        {
+            throw new NotSupportedException();
         }
     }
 
@@ -99,32 +111,37 @@ namespace AppContextTest.appContext
     {
         void AppAuthState.authenticate(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.authenticateActivatingNew(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.authorize(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         void AppAuthState.disconnect(AppAuthContext context)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
-        string AppAuthState.getMessage()
+        void AppAuthState.error(AppAuthContext context)
         {
-            return AppStateMessage.AUTHORIZED;
+            throw new NotSupportedException();
         }
 
-        void AppAuthState.unauthorize(AppAuthContext context)
+        string AppAuthState.getStateCode()
         {
-            throw new NotImplementedException();
+            return AppStateCode.AUTHORIZED;
+        }
+
+        void AppAuthState.unauthorize(AppAuthContext context, string message)
+        {
+            throw new NotSupportedException();
         }
     }
 }
